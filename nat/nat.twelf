@@ -1,0 +1,89 @@
+nat : type.
+z : nat.
+s : nat -> nat.
+
+plus : nat -> nat -> nat -> type.
+plus/z : plus z N N.
+plus/s : plus N M P -> plus (s N) M (s P).
+
+%mode plus +N +M -P.
+%worlds () (plus _ _ _).
+%total N (plus N _ _).
+
+plus-right-id : {N} plus N z N -> type.
+plus-right-id/z : plus-right-id z plus/z.
+plus-right-id/s : 
+	{D : plus N z N}
+	{_ : plus-right-id N D}
+	plus-right-id (s N) (plus/s D).
+
+%mode plus-right-id +N -D.
+%worlds () (plus-right-id _ _).
+%total N (plus-right-id N _).
+
+even : nat -> type.
+even/z : even z.
+even/ss : even (s (s N)) <- even N.
+
+sum-of-evens : even N -> even M -> plus N M Q -> even Q -> type.
+sum-of-evens/z : sum-of-evens even/z D _ D.
+sum-of-evens/s : {N : nat} {M : nat} {Q : nat}
+		 {N_even : even N}
+		 {M_even : even M}
+		 {Q_even : even Q}
+	         {SumNM : plus N M Q}
+		 {IH : sum-of-evens N_even M_even SumNM Q_even}
+		 sum-of-evens 
+			(even/ss N_even : even (s (s N)))
+			(M_even : even M)
+			(plus/s (plus/s SumNM) : plus (s (s N)) M (s (s Q)))
+			(even/ss Q_even : even (s (s Q))).
+
+%mode sum-of-evens +DN +DM +DP -DQ.
+%worlds () (sum-of-evens _ _ _ _).
+%total D (sum-of-evens D _ _ _).
+
+odd : nat -> type.
+odd/sz : odd (s z).
+odd/ss : odd (s (s N)) <- odd N.
+ 
+ss-odd-is-even : odd N -> even (s N) -> type.
+ss-odd-is-even/odd-sz : ss-odd-is-even odd/sz (even/ss even/z).
+ss-odd-is-even/odd-ss :
+	{Dodd : odd N}
+	{Deven : even (s N)}
+	{D : ss-odd-is-even Dodd Deven}
+	ss-odd-is-even (odd/ss Dodd : odd (s (s N)))
+			(even/ss Deven : even (s (s (s N)))).
+
+%mode ss-odd-is-even +D -D'.
+%worlds () (ss-odd-is-even _ _).
+%total D (ss-odd-is-even D _).
+
+ss-even-is-odd : even N -> odd (s N) -> type.
+ss-even-is-odd/even-z : ss-even-is-odd even/z odd/sz.
+ss-even-is-odd/even-ss : 
+	{IH : ss-even-is-odd Deven Dodd}
+	ss-even-is-odd (even/ss Deven : even (s (s N)))
+			(odd/ss Dodd : odd (s (s (s N)))).
+
+%mode ss-even-is-odd +D -D'.
+%worlds () (ss-even-is-odd _ _).
+%total D (ss-even-is-odd D _).
+
+
+plus-comm : {M} plus N M Q -> plus M N Q -> type.
+%mode plus-comm +M +D -D'.
+plus-comm/plus-z/z : 
+	plus-comm z (plus/z : plus z z z)
+		  (plus/z : plus z z z).
+plus-comm/plus-z/s : % plus z (s N) (s N) -> plus (s N) z (s N)
+	{Dp : plus z N N}
+	{Dp' : plus N z N}
+	{_ : plus-comm N Dp Dp'}
+	plus-comm (s N)  
+		(plus/z : plus z (s N) (s N))
+		(plus/s Dp' : plus (s N) z (s N)).
+	
+
+

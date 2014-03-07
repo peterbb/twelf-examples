@@ -1,0 +1,155 @@
+% expressions language
+expr : type.
+z : expr.
+s : expr -> expr.
+case : expr -> expr -> (expr -> expr) -> expr.
+pair : expr -> expr -> expr.
+fst : expr -> expr.
+snd : expr -> expr.
+lam : (expr -> expr) -> expr.
+fix : (expr -> expr) -> expr.
+app : expr -> expr -> expr.
+letv : expr -> (expr -> expr) -> expr.
+letn : expr -> (expr -> expr) -> expr.
+
+% value predicate
+value : expr -> type.
+val_z : value z.
+val_s : value V -> value (s V).
+val_pair : value V1 -> value V2 -> value (pair V1 V2).
+val_lam : value (lam E).
+
+% eval relation
+eval : expr -> expr -> type.
+ev_z : eval z z.
+ev_s : eval (s E) (s V) <- eval E V.
+ev_case_z : eval (case E1 E2 E3) V 
+	<- eval E2 V
+	<- eval E1 z.
+ev_case_s : eval (case E1 E2 E3) V
+	<- eval (E3 V1) V
+	<- eval E1 (s V1).
+
+ev_pair : eval (pair E1 E2) (pair V1 V2)
+	<- eval E2 V2
+	<- eval E1 V1.
+ev_fst : eval (fst E) V <- eval E (pair V _).
+ev_snd : eval (snd E) V <- eval E (pair _ V).
+
+
+ev_lam : eval (lam E) (lam E).
+ev_app : eval (app E1 E2) V
+	<- eval (E11 V2) V
+	<- eval E2 V2
+	<- eval E1 (lam E11).
+
+ev_letv : eval (letv E1 E2) V 
+	<- eval (E2 V1) V
+	<- eval E1 V1.
+ev_letn : eval (letn E1 E2) V
+	<- eval (E2 E1) V.
+
+ev_fix : eval (fix E) V 
+	<- eval (E (fix E)) V.
+
+% Evaluation results in a value:
+vs : eval E V -> value V -> type.
+%mode vs +D -D'.
+
+vs/z : vs ev_z val_z.
+
+vs/s : vs (D : eval E V) (P : value V) ->
+       vs (ev_s D) (val_s P).
+
+vs/case_z :
+    vs (D1 : eval E1 z) P1 ->
+    vs (D2 : eval E2 V) (P2 : value V) ->
+    vs (ev_case_z D1 D2 : eval (case E1 E2 E3) V)
+       (P2 : value V).
+
+vs/case_s :
+    vs (D1 : eval E1 (s V')) (P1 : value (s V')) ->
+    vs (D2 : eval (E3 V') V) (P2 : value V) ->
+    vs (ev_case_s D1 D2 : eval (case E1 E2 E3) V)
+       (P2 : value V).
+
+vs/pair :
+    vs (D1 : eval E1 V1) (P1 : value V1) ->
+    vs (D2 : eval E2 V2) (P2 : value V2) ->
+    vs (ev_pair D1 D2 : eval (pair E1 E2) (pair V1 V2))
+       (val_pair P1 P2 : value (pair V1 V2)).
+
+vs/fst :
+    vs (D : eval E (pair V V')) (val_pair P1 P2) ->
+    vs (ev_fst D : eval (fst E) V)
+       (P1 : value V).
+
+vs/snd :
+    {P1 : value V1}
+    {P2 : value V2}
+    vs (D : eval E (pair V1 V2)) (val_pair P1 P2) ->
+    vs (ev_snd D : eval (snd E) V2) 
+       (P2 : value V2).
+
+
+vs/lam :
+    vs (ev_lam : eval (lam E) (lam E))
+       (val_lam : value (lam E)).
+
+vs/app :
+    vs (D1 : eval E1 (lam E1')) (P1 : value (lam E1')) ->
+    vs (D2 : eval E2 V2)        (P2 : value V2) ->
+    vs (D3 : eval (E1' V2) V)   (P3 : value V) ->
+    vs (ev_app D1 D2 D3 : eval (app E1 E2) V)
+       (P3 : value V).
+
+vs/letv :
+    vs (D1 : eval E1 V1) (P1 : value V1) ->
+    vs (D2 : eval (E2 V1) V) (P2 : value V) ->
+    vs (ev_letv D1 D2 : eval (letv E1 E2) V)
+        (P2 : value V).
+
+vs/letn :
+    vs D P ->
+    vs (ev_letn D : eval (letn E1 E2) V)
+       (P : value V).
+
+vs/fix :
+    vs (D : eval (E (fix E)) V) (P : value V) ->
+    vs (ev_fix D : eval (fix E) V) (P : value V).
+
+%worlds () (vs _ _).
+%total D (vs D _).
+
+%{
+% Typing language.
+typ : type.
+nat : typ.
+arr : typ -> typ -> typ. 
+prod : typ -> typ -> typ.
+% Typing relation.
+tp : expr -> typ -> type.
+
+tp_z : tp z nat.
+tp_s : tp (s E) nat <- tp E nat.
+
+% tp_case : tp (case E1 E2 E3) T
+% 	<- tp E1 nat
+% 	<- tp E2 T
+% 	<- tp 
+
+tp_pair : tp (pair E1 E2) (prod T1 T2)
+	<- tp E1 T1
+	<- tp E2 T2.
+
+tp_fst : tp (fst E) T <- tp E (prod T _).
+tp_snd : tp (snd E) T <- tp E (prod _ T).
+
+
+%tp_lam : tp (lam E) (arr T1 T2).
+
+tp_app : tp (app E1 E2) T
+	<- tp E1 (arr T2 T)
+	<- tp E2 T2.
+
+}%
