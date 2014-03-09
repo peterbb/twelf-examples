@@ -71,19 +71,27 @@ ss-even-is-odd/even-ss :
 %worlds () (ss-even-is-odd _ _).
 %total D (ss-even-is-odd D _).
 
+plus-right-s : plus N M Q -> plus N (s M) (s Q) -> type.
+plus-right-s/z : plus-right-s plus/z plus/z.
+plus-right-s/s : plus-right-s (plus/s D) (plus/s D') <- plus-right-s D D'.
+%mode plus-right-s +D -D'.
+%worlds () (plus-right-s _ _).
+%total D (plus-right-s D _).
 
-plus-comm : {M} plus N M Q -> plus M N Q -> type.
-%mode plus-comm +M +D -D'.
-plus-comm/plus-z/z : 
-	plus-comm z (plus/z : plus z z z)
-		  (plus/z : plus z z z).
-plus-comm/plus-z/s : % plus z (s N) (s N) -> plus (s N) z (s N)
-	{Dp : plus z N N}
-	{Dp' : plus N z N}
-	{_ : plus-comm N Dp Dp'}
-	plus-comm (s N)  
-		(plus/z : plus z (s N) (s N))
-		(plus/s Dp' : plus (s N) z (s N)).
+
+plus-comm : plus N M Q -> plus M N Q -> type.
+%mode plus-comm +D -D'.
+plus-comm/plus-z : 
+    plus-right-id N D ->
+    plus-comm (plus/z : plus z N N) D.
+plus-comm/plus-s : 
+    { D  : plus N M Q }
+    { D' : plus M N Q }
+    { D'' : plus M (s N) (s Q) }
+    plus-right-s D' D'' ->
+    plus-comm D D' ->
+    plus-comm (plus/s D) D''.
 	
 
-
+%worlds () (plus-comm _ _).
+%total D (plus-comm D _).
