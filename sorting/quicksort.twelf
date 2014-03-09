@@ -1,0 +1,87 @@
+% Implementation of quicksort, and proof of correctness.
+
+bool : type.
+true : bool.
+false : bool.
+
+nat : type. %name nat N.
+z : nat.
+s : nat -> nat.
+
+plus : nat -> nat -> nat -> type.
+plus/z : plus z N N.
+plus/s : plus (s N1) N2 (s M) <- plus N1 N2 M.
+
+%mode plus +N1 +N2 -M.
+%worlds () (plus _ _ _).
+%total N1 (plus N1 _ _).
+
+leq : nat -> nat -> bool -> type.
+leq/z   : leq z M true.
+leq/s-z : leq (s _) z false.
+leq/s-s : leq (s N) (s M) B <- leq N M B.
+
+%mode leq +N +M -B.
+%worlds () (leq _ _ _).
+%total N (leq N _ _).
+
+list : nat -> type. %name list L.
+* : list z.
+, : nat -> list N -> list (s N). %infix left 10 ,.
+
+append : list N1 -> list N2 -> {M} plus N1 N2 M -> list M -> type.
+append/* : append * L _ plus/z L.
+append/, : append (X , L1) L2 (s M) (plus/s D) (X , L)
+    <- append L1 L2 M (D : plus N1 N2 M) L.
+
+%mode append +L1 +L2 -M -D -L.
+%worlds () (append _ _ _ _ _).
+%total A (append A _ _ _ _).
+
+right-successor : plus N1 N2 M -> plus N1 (s N2) (s M) -> type.
+right-successor/plus-z : right-successor plus/z plus/z.
+right-successor/plus/s : right-successor (plus/s D) (plus/s D')
+    <- right-successor D D'.
+
+%mode right-successor +D -D'.
+%worlds () (right-successor _ _).
+%total D (right-successor D _).
+
+case-cons : bool -> nat -> list N1 -> list N2 -> {M} plus N1 N2 M
+    -> list N1' -> list N2' -> plus N1' N2' (s M) -> type.
+case-cons/true  : case-cons true  X L1 L2 M D (X , L1) L2 (plus/s D).
+case-cons/false : case-cons false X L1 L2 M D L1 (X , L2) D'
+    <- right-successor D D'.
+
+%mode case-cons +B +X +L1 +L2 +M +D1 -L1' -L2' -D2.
+%worlds () (case-cons _ _ _ _ _ _ _ _ _ ).
+%total B (case-cons B _ _ _ _ _ _ _ _).
+
+split : nat -> {M} list M -> 
+    {N1} list N1 -> {N2} list N2 -> plus N1 N2 M -> type.
+split/* : split X z * _ * _ * plus/z.
+split/, : split X (s N) (Y , L : list (s N))
+            N1 (L1 : list N1)
+            N2 (L2 : list N2)
+            (D : plus N1 N2 (s N))
+    <- split X N L N1' L1' N2' L2' (D' : plus N1' N2' N)
+    <- leq X Y B
+    <- case-cons B X L1' L2' N D' L1 L2 D.
+
+%mode split +X +M +L -N1 -L1 -N2 -L2 -D.
+%worlds () (split _ _ _ _ _ _ _ _).
+%total L (split _ _ L _ _ _ _ _).
+
+%reduces N <= M (split _ M _ N _ _ _ _).
+%reduces N <= M (split _ M _ _ _ N _ _).
+
+quicksort : {M} list M -> list M -> type.
+quicksort/* : quicksort z * *.
+quicksort/, : quicksort (s M) (Head , Tail : list (s M)) Sorted
+    <- split Head M Tail N1 L1 N2 L2 (D : plus N1 N2 M)
+    <- quicksort N1 L1 L1'
+    <- quicksort N2 L2 L2'
+    <- append L1' (Head , L2') (s M) (_ : plus _ _ _) Sorted.
+%mode quicksort +M +L -L'.
+%worlds () (quicksort _ _ _).
+%total M (quicksort M _ _).
