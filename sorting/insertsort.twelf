@@ -1,0 +1,161 @@
+bool : type.
+true : bool.
+false : bool.
+
+nat : type.
+z : nat.
+s : nat -> nat.
+
+leq : nat -> nat -> bool -> type. %name leq Leq.
+leq/z : leq z _ true.
+leq/s-z : leq (s _) z false.
+leq/s-s : leq (s N) (s M) B <- leq N M B.
+
+%mode leq +N +M -B.
+%worlds () (leq _ _ _).
+%total N (leq N _ _).
+
+list : type. %name list L.
+* : list.
+, : nat -> list -> list. %infix right 10 ,.
+
+insert : nat -> list -> list -> type.
+insert-helper : bool -> nat -> nat -> list -> list -> type.
+%mode insert +X +L -L'.
+%mode insert-helper +B +X +Y +L -L'.
+
+insert/* : insert X * (X , *).
+insert/, : insert X (Y , L) L'
+    <- leq X Y B
+    <- insert-helper B X Y L L'.
+
+insert-helper/true : insert-helper true X Y L (X , Y , L).
+insert-helper/false : insert-helper false X Y L (Y , L') 
+    <- insert X L L'.
+
+%worlds () (insert _ _ _) (insert-helper _ _ _ _ _).
+%total (L L') (insert _ L _) (insert-helper _ _ _ L' _).
+
+insertsort : list -> list -> type.
+insertsort/* : insertsort * *.
+insertsort/, : insertsort (X , L) L''
+    <- insertsort L L' 
+    <- insert X L' L''.
+
+%mode insertsort +L -L'.
+%worlds () (insertsort _ _).
+%total L (insertsort L _).
+
+%{ TIME TO PROVE SOME META THEOREMS! }%
+
+sorted : list -> type. %name sorted Sorted.
+sorted/* : sorted *.
+sorted/,* : sorted (X , *).
+sorted/,, : sorted (X , Y , L)
+    <- leq X Y true
+    <- sorted (Y , L).
+
+sorted-left : {L} sorted (Y , L) -> sorted L -> type.
+sorted-left/* : sorted-left * sorted/,* sorted/*.
+sorted-left/, : sorted-left (X , L) 
+                    (sorted/,, (D1 : sorted (X , L)) _)
+                    D1.
+%mode sorted-left +L +D -D'.
+%worlds () (sorted-left _ _ _).
+%total L (sorted-left L _ _).
+
+flip-leq : leq X Y false -> leq Y X true -> type.
+flip-leq//leq/s-z : flip-leq leq/s-z leq/z.
+flip-leq//leq/s-s : flip-leq (leq/s-s D) (leq/s-s D')
+    <- flip-leq D D'.
+
+%mode flip-leq +D -D'.
+%worlds () (flip-leq _ _).
+%total D (flip-leq D _).
+
+leq-if-sorted : sorted (X , Y , _) -> leq X Y true -> type.
+leq-if-sorted/sorted,, : leq-if-sorted (sorted/,, _ D) D.
+%mode leq-if-sorted +Sorted -Leq.
+%worlds () (leq-if-sorted _ _).
+%total D (leq-if-sorted D _).
+
+insert-greater : sorted (Y , L) -> leq X Y false -> insert X L L' 
+    -> sorted (Y , L') -> type.
+insert-helper-greater : sorted (Y , Z , L) -> leq Y X true -> leq Y Z true ->
+    leq X Z B -> insert-helper B X Z L L' -> sorted (Y , L') -> type.
+%mode insert-greater +SortedYL +LeqYX +Insert -SortedYL'.
+%mode insert-helper-greater +Sort +Leq1 +Leq2 +Leq3 +InsertHelper -Sort'.
+
+- : insert-greater Sorted NotX<=Y insert/* (sorted/,, sorted/,* Y<=X)
+<- flip-leq NotX<=Y Y<=X.
+- : insert-greater (Sorted : sorted (X , Y , L))
+           (NotZ<=X : leq Z X false)
+           (insert/, InsertHelper Z<=Y) 
+           SortedResult
+    <- flip-leq NotZ<=X X<=Z
+    <- leq-if-sorted Sorted X<=Y
+    <- insert-helper-greater Sorted X<=Z X<=Y Z<=Y InsertHelper SortedResult.
+
+- : insert-helper-greater 
+      (sorted/,, SortedZL Y<=Z' : sorted (Y , Z , L))
+      (Y<=X : leq Y X true)
+      (Y<=Z : leq Y Z true)
+      (X<=Z : leq X Z true)
+      (insert-helper/true : insert-helper true X Z L _)
+      (sorted/,, (sorted/,, SortedZL X<=Z)
+                 Y<=X : sorted (Y , X , Z , L)).
+- : insert-helper-greater 
+      (sorted/,, SortedZL Y<=Z : sorted (Y , Z , L))
+      (LeqYX : leq Y X true)
+      (LeqYZ : leq Y Z true)
+      (NotLeqXZ : leq X Z false)
+      (insert-helper/false Insert : insert-helper false X Z L (Z , L'))
+      (sorted/,, SortedZL' LeqYZ : sorted (Y , Z , L'))
+    <- insert-greater SortedZL NotLeqXZ Insert (SortedZL' : sorted (Z , L')).
+
+%worlds () (insert-greater _ _ _ _) (insert-helper-greater _ _ _ _ _ _).
+%total (D D') (insert-greater _ _ D _) (insert-helper-greater _ _ _ _ D' _).
+                        
+insert-sound : insert _ L L' -> sorted L -> sorted L' -> type.
+insert-helper-sound : insert-helper B X Y L L' -> leq X Y B ->
+        sorted (Y , L) -> sorted L' -> type.
+%mode insert-sound +I +S -S'.
+%mode insert-helper-sound +IH +Leq +S -S'.
+
+- : insert-sound insert/* sorted/* sorted/,*.
+- : insert-sound (insert/, (InsHelp : insert-helper B X Y L L')
+                       (LessXY : leq X Y B))
+             (SortedYL : sorted (Y , L))
+             (SortedL' : sorted L')
+<- insert-helper-sound InsHelp LessXY SortedYL SortedL'.
+- : insert-helper-sound 
+    insert-helper/true 
+        (LessXY : leq X Y true)
+        (D : sorted (Y , L))
+        (sorted/,, D LessXY).
+
+- : insert-helper-sound 
+        (insert-helper/false (Insert : insert X L L'))
+        (NotLeq : leq X Y false)
+        (SortedYL : sorted (Y , L))
+        (D : sorted (Y , L'))
+    <- sorted-left L SortedYL SortedL
+    <- insert-sound Insert SortedL SortedL'
+    <- insert-greater SortedYL NotLeq Insert D.
+
+%worlds () (insert-sound _ _ _) (insert-helper-sound _ _ _ _).
+%total (D D') (insert-sound D _ _) (insert-helper-sound D' _ _ _).
+
+insertsort-sound : insertsort _ L -> sorted L -> type.
+- : insertsort-sound insertsort/* sorted/*.
+- : insertsort-sound 
+    (insertsort/, (Insert : insert X L' L'')
+                  (InsertSort : insertsort L L'))
+    (SortedL'' : sorted L'')
+    <- insertsort-sound InsertSort SortedL'
+    <- insert-sound Insert SortedL' SortedL''.
+
+%mode insertsort-sound +D -S.
+%worlds () (insertsort-sound _ _).
+%total D (insertsort-sound D _).
+
